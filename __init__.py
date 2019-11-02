@@ -45,7 +45,11 @@ from bpy.types import Operator
 if "bpy" in locals():
     import importlib
     importlib.reload(preferences)
-# ----------------------------------------------------------------------------
+    importlib.reload(bvhReader)
+else:
+    from . import preferences
+    from . import bvhReader
+
 # Main Operators
 class DesignTool(bpy.types.Panel):
     bl_idname = "animationTool"
@@ -72,7 +76,6 @@ def register():
 def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
-
 
 
 if __name__ == "__main__":
