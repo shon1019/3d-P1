@@ -4,7 +4,6 @@ import bpy
 
 class BvhUtilitiesPreferences(bpy.types.AddonPreferences):
     bl_idname = __package__
-    projectManager = ProjectManager()
 
 classes = (
     BvhUtilitiesPreferences,

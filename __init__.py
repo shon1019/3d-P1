@@ -19,36 +19,23 @@
 # <pep8 compliant>
 
 bl_info = {
-    "name": "P1",
-    "author": "shion",
-    "version": (1, 0),
-    "blender": (2, 65, 0),
-    "location": "Sequencer -> Track View Properties",
-    "description": "Load a CMX formatted EDL into the sequencer",
-    "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"
-                "Scripts/Import-Export/EDL_Import",
-    "category": "Import-Export",
-}
+    "name": "Landscape Designer",
+    "author": "晟暘科技",
+    "version": (5, 8, 6),
+    "blender": (2, 77),
+    "location": "View3D > TOOLS",
+    "description": "地景設計套裝",
+    "wiki_url" : "http://chenyang56685193.com/",
+    "category": "Mesh"}
 
 import bpy
 
+from bpy.props import StringProperty, FloatProperty, IntProperty
+from bpy.types import Operator, Panel, WindowManager, UILayout
+import bpy.utils.previews
 
-from bpy.props import (
-        StringProperty,
-        IntProperty,
-        PointerProperty,
-        )
-
-from bpy.types import Operator
-
-if "bpy" in locals():
-    import importlib
-    importlib.reload(preferences)
-    importlib.reload(bvhReader)
-else:
-    from . import preferences
-    from . import bvhReader
+from . import preferences
+from . import bvhReader
 
 # Main Operators
 class DesignTool(bpy.types.Panel):
@@ -63,7 +50,9 @@ class DesignTool(bpy.types.Panel):
         return True
 
     def draw(self, context):
+        layout = self.layout
         row = layout.row()
+        row.operator("ldops.bvh_reader", text = "匯入bvh")
 
 classes = (
     DesignTool,
@@ -72,11 +61,17 @@ classes = (
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+    bvhReader.register()
+    preferences.register()
 
 def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
+    bvhReader.unregister()
+    preferences.unregister()
 
 
 if __name__ == "__main__":
+    __name__ = "landscapeDesigner"
+    __package__ = "landscapeDesigner"
     register()
