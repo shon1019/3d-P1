@@ -5,8 +5,12 @@ import bpy
 class BvhUtilitiesPreferences(bpy.types.AddonPreferences):
     bl_idname = __package__
 
+class hairUtilitiesPreferences(bpy.types.AddonPreferences):
+    bl_idname = __package__
+
 classes = (
     BvhUtilitiesPreferences,
+    hairUtilitiesPreferences,
 )
 
 def register():

@@ -20,12 +20,12 @@
 
 bl_info = {
     "name": "Landscape Designer",
-    "author": "晟暘科技",
+    "author": "shion",
     "version": (5, 8, 6),
     "blender": (2, 77),
     "location": "View3D > TOOLS",
     "description": "地景設計套裝",
-    "wiki_url" : "http://chenyang56685193.com/",
+    "wiki_url" : "111",
     "category": "Mesh"}
 
 import bpy
@@ -38,12 +38,29 @@ from . import preferences
 from . import bvhReader
 
 # Main Operators
-class DesignTool(bpy.types.Panel):
-    bl_idname = "animationTool"
+class P1(bpy.types.Panel):
+    bl_idname = "P1"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
     bl_category = "liveDesign"
-    bl_label = "動畫工具"
+    bl_label = "P1"
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        row.operator("ldops.bvh_reader", text = "匯入bvh")
+
+# Main Operators
+class P2(bpy.types.Panel):
+    bl_idname = "P2"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category = "liveDesign"
+    bl_label = "P2"
 
     @classmethod
     def poll(cls, context):
@@ -55,7 +72,8 @@ class DesignTool(bpy.types.Panel):
         row.operator("ldops.bvh_reader", text = "匯入bvh")
 
 classes = (
-    DesignTool,
+    P1,
+    P2,
 )
 
 def register():
