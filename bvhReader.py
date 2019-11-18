@@ -11,6 +11,10 @@ from bpy.types import Operator
 
 class bvhUtils():
     firstLoad = False
+    #當前物體
+    obj = None
+    #hip的位置的list
+    HipLocations = []
 
 class bvhReader(bpy.types.Operator):
     """bvhReader"""
@@ -27,23 +31,26 @@ class bvhReader(bpy.types.Operator):
     def execute(self, context):
         pref = bpy.context.user_preferences.addons[__package__].preferences
         sc = context.scene
-        #hip的位置的list
-        HipLocations = []
-
+        #reader
         bpy.ops.import_anim.bvh(filepath=self.filepath)
         obj = context.object
-        #該動畫結束時間
-        endFrame = obj.animation_data.nla_tracks['NlaTrack'].strips[0].frame_end
+        bvhUtils.obj = obj
         if bvhUtils.firstLoad :
             #地2隻不要顯示
             obj.hide = True
-        for i in range (0, endFrame + 1):
+        for i in range (1, context.scene.frame_end):
             sc.frame_set(i)
             tmpLocation = []
             tmpLocation.append(obj.pose.bones['Hips'].location[0]) 
             tmpLocation.append(obj.pose.bones['Hips'].location[1]) 
             tmpLocation.append(obj.pose.bones['Hips'].location[2]) 
-            HipLocations.append(tmpLocation)
+            #偵測動畫結束沒
+            if i > 1 and (tmpLocation[0] !=  bvhUtils.HipLocations[i-2][0] or tmpLocation[1] != bvhUtils.HipLocations[i-2][1] or tmpLocation[2] != bvhUtils.HipLocations[i-2][2]):
+                bvhUtils.HipLocations.append(tmpLocation)
+            elif i == 1:
+                bvhUtils.HipLocations.append(tmpLocation)
+            else:
+                break
         
         return {'FINISHED'}
 

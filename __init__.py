@@ -69,7 +69,6 @@ class P2(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         row = layout.row()
-        row.operator("ldops.bvh_reader", text = "匯入bvh")
 
 classes = (
     P1,
