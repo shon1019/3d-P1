@@ -19,14 +19,15 @@
 # <pep8 compliant>
 
 bl_info = {
-    "name": "Landscape Designer",
-    "author": "shion",
+    "name": "landscapeDesigner",
+    "author": "晟暘科技",
     "version": (5, 8, 6),
-    "blender": (2, 77),
-    "location": "View3D > TOOLS",
+    "blender": (2, 80, 0),
+    "location": "View3D > UI",
     "description": "地景設計套裝",
-    "wiki_url" : "111",
+    "wiki_url" : "http://chenyang56685193.com/",
     "category": "Mesh"}
+
 
 import bpy
 
@@ -37,11 +38,13 @@ import bpy.utils.previews
 from . import preferences
 from . import bvhReader
 
+from . draw_op import OT_draw_operator
+
 # Main Operators
 class P1(bpy.types.Panel):
-    bl_idname = "P1"
+    bl_idname = "P1_PT_Tool"
     bl_space_type = "VIEW_3D"
-    bl_region_type = "TOOLS"
+    bl_region_type = "UI"
     bl_category = "liveDesign"
     bl_label = "P1"
 
@@ -52,13 +55,15 @@ class P1(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         row = layout.row()
-        row.operator("ldops.bvh_reader", text = "匯入bvh")
+        row.operator("ldops.bvh_reader", text = "import bvh")
+        row.operator("object.draw_op", text = "Draw Ori Line")
+        row.operator("ldops.recompute", text = "comput")
 
 # Main Operators
 class P2(bpy.types.Panel):
-    bl_idname = "P2"
+    bl_idname = "P2_PT_Tool"
     bl_space_type = "VIEW_3D"
-    bl_region_type = "TOOLS"
+    bl_region_type = "UI"
     bl_category = "liveDesign"
     bl_label = "P2"
 
@@ -81,12 +86,13 @@ def register():
     bvhReader.register()
     preferences.register()
 
+    bpy.utils.register_class(OT_draw_operator)
+
 def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
     bvhReader.unregister()
     preferences.unregister()
-
 
 if __name__ == "__main__":
     __name__ = "landscapeDesigner"

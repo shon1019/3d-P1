@@ -8,6 +8,7 @@ from bpy.props import (
         )
         
 from bpy.types import Operator
+from . import SolveLeastSquare
 
 class bvhUtils():
     firstLoad = False
@@ -15,6 +16,20 @@ class bvhUtils():
     obj = None
     #hip的位置的list
     HipLocations = []
+    #曲線
+    curveOB = None
+
+class recompute(bpy.types.Operator):
+    bl_idname = "ldops.recompute"
+    bl_label = "recompute"
+
+    def execute(self, context):
+        bvhUtils.obj.select_set(True)
+        context.view_layer.objects.active = bvhUtils.curveOB
+        bvhUtils.curveOB.select_set(True)
+        bpy.ops.object.parent_set(type='FOLLOW') #follow path
+        return {'FINISHED'}
+
 
 class bvhReader(bpy.types.Operator):
     """bvhReader"""
@@ -29,7 +44,7 @@ class bvhReader(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
     def execute(self, context):
-        pref = bpy.context.user_preferences.addons[__package__].preferences
+        pref = bpy.context.preferences.addons[__package__].preferences
         sc = context.scene
         #reader
         bpy.ops.import_anim.bvh(filepath=self.filepath)
@@ -51,19 +66,50 @@ class bvhReader(bpy.types.Operator):
                 bvhUtils.HipLocations.append(tmpLocation)
             else:
                 break
-        
+
+        points = SolveLeastSquare.leastsq(bvhUtils.HipLocations)
+        curveData = bpy.data.curves.new('myCurve', type='CURVE')
+        curveData.dimensions = '3D'
+        curveData.resolution_u = 2
+
+        # map coords to spline
+        polyline = curveData.splines.new('BEZIER')
+        # polyline.bezier_points
+        polyline.bezier_points.add(len(points)/4)
+        x,y,z = points[0]
+        polyline.bezier_points[0].co = (x, -z, 0)
+        x,y,z = points[1]
+        polyline.bezier_points[0].handle_left = (x, -z, 0)
+        x,y,z = points[2]
+        polyline.bezier_points[1].handle_right = (x, -z, 0)
+        x,y,z = points[3]
+        polyline.bezier_points[1].co = (x, -z, 0)
+        # for i, coord in enumerate(points):
+        #     x,y,z = coord
+        #     print(coord)
+        #     if i%2 == 0:
+        #         x,y,z = points[i*2+1]
+        #         polyline.bezier_points[i].handle_left = (x, -z, y)
+        #     else:
+        #         x,y,z = points[i*2+1]
+        #         polyline.bezier_points[i].handle_right = (x, -z, y)  
+        # create Object
+        curveOB = bpy.data.objects.new('myCurve', curveData)
+
+        # attach to scene and validate context
+        bvhUtils.curveOB = curveOB
+        scn = context.scene
+        scn.collection.objects.link(curveOB)
         return {'FINISHED'}
 
-classes = (
-    bvhReader,
-    bvhUtils,
-)
+
+
 
 def register():
-    for cls in classes:
-        bpy.utils.register_class(cls)
+    bpy.utils.register_class(bvhReader)
+    bpy.utils.register_class(recompute)
 
 def unregister():
-    for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+    bpy.utils.unregister_class(bvhReader)
+    bpy.utils.register_class(recompute)
 
