@@ -28,7 +28,6 @@ def leastsq(pts):
         print("Inverse Error")
         return
     answer = inverse.dot(bezMatTras.dot(ptMat))
-    print(answer)
     return answer
     
 size = 10
