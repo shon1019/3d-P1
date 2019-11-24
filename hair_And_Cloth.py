@@ -34,18 +34,13 @@ class ParticleCreaterUtils():
 class Particle():
     movable = True  # can the particle move or not ? used to pin parts of the cloth
     mass = 1  # the mass of the particle (is always 1 in this example)
-    pos = Vector()  # the current position of the particle in 3D space
-    old_pos = Vector()  # the position of the particle in the previous time step, used as part of the verlet numerical integration scheme
-    acceleration = Vector()  # a vector representing the current acceleration of the particle
-    accumulated_normal = Vector() # an accumulated normal (i.e. non normalized), used for OpenGL soft shading
+    pos = Vector(0, 0, 0)  # the current position of the particle in 3D space
+    old_pos = Vector(0, 0, 0)  # the position of the particle in the previous time step, used as part of the verlet numerical integration scheme
+    acceleration = Vector(0, 0, 0)  # a vector representing the current acceleration of the particle
+    accumulated_normal = Vector(0, 0, 0) # an accumulated normal (i.e. non normalized), used for OpenGL soft shading
 
-    def __init__(self, pos, old_pos, acceleration, mass, movable, accumulated_normal):
+    def __init__(self, pos):
         self.pos = pos
-        self.old_pos = old_pos
-        self.acceleration = acceleration
-        self.mass = mass
-        self.movable = movable
-        self.accumulated_normal = accumulated_normal
 
     def addForce(self, f):
         self.acceleration += f / self.mass
@@ -176,41 +171,41 @@ class Cloth(bpy.types.Operator):
             for y in range(0, self.num_particles_height):
                 pos = Vector((width * (x / self.num_particles_width),
                     -height * (y / self.num_particles_height),
-                    0));
-                self.particles[y*num_particles_width + x] = Particle(pos); # insert particle in column x at y'th row
+                    0))
+                self.particles[y*num_particles_width + x] = Particle(pos) # insert particle in column x at y'th row
 
         # Connecting immediate neighbor particles with constraints(distance 1 and sqrt(2) in the grid)
         for x in range (0, self.num_particles_width):
             for y in range (0,self.num_particles_height):
                 if x < self.num_particles_width - 1:
-                    makeConstraint(getParticle(x, y), getParticle(x + 1, y))
+                    makeConstraint(self.getParticle(x, y), self.getParticle(x + 1, y))
                 if y < self.num_particles_height - 1:
-                    makeConstraint(getParticle(x, y), getParticle(x, y + 1))
+                    makeConstraint(self.getParticle(x, y), self.getParticle(x, y + 1))
                 if x < self.num_particles_width - 1 and y < self.num_particles_height - 1:
-                    makeConstraint(getParticle(x, y), getParticle(x + 1, y + 1))
+                    makeConstraint(self.getParticle(x, y), self.getParticle(x + 1, y + 1))
                 if x < self.num_particles_width - 1 and y < self.num_particles_height - 1:
-                    makeConstraint(getParticle(x + 1, y), getParticle(x, y + 1))
+                    makeConstraint(self.getParticle(x + 1, y), self.getParticle(x, y + 1))
 
 
         # Connecting secondary neighbors with constraints(distance 2 and sqrt(4) in the grid)
         for x in range (0, self.num_particles_width):
             for y in range (0, self.num_particles_height):
                 if x < self.num_particles_width - 2: 
-                    makeConstraint(getParticle(x, y), getParticle(x + 2, y))
+                    makeConstraint(self.getParticle(x, y), self.getParticle(x + 2, y))
                 if y < self.num_particles_height - 2: 
-                    makeConstraint(getParticle(x, y), getParticle(x, y + 2))
+                    makeConstraint(self.getParticle(x, y), self.getParticle(x, y + 2))
                 if x < self.num_particles_width - 2 and y < self.num_particles_height - 2:
-                    makeConstraint(getParticle(x, y), getParticle(x + 2, y + 2))
+                    makeConstraint(self.getParticle(x, y), self.getParticle(x + 2, y + 2))
                 if x < self.num_particles_width - 2 and y < self.num_particles_height - 2:
-                    makeConstraint(getParticle(x + 2, y), getParticle(x, y + 2))
+                    makeConstraint(self.getParticle(x + 2, y), self.getParticle(x, y + 2))
 
         # making the upper left most three and right most three particles unmovable
         for i in range (0,4):
-            getParticle(0 + i, 0).offsetPos(Vector((0.5, 0.0, 0.0))) # moving the particle a bit towards the center, to make it hang more natural - because I like it;)
-            getParticle(0 + i, 0).makeUnmovable();
+            self.getParticle(0 + i, 0).offsetPos(Vector((0.5, 0.0, 0.0))) # moving the particle a bit towards the center, to make it hang more natural - because I like it;)
+            self.getParticle(0 + i, 0).makeUnmovable()
 
-            getParticle(0 + i, 0).offsetPos(Vector((-0.5, 0.0, 0.0))) # moving the particle a bit towards the center, to make it hang more natural - because I like it;)
-            getParticle(num_particles_width - 1 - i, 0).makeUnmovable()
+            self.getParticle(0 + i, 0).offsetPos(Vector((-0.5, 0.0, 0.0))) # moving the particle a bit towards the center, to make it hang more natural - because I like it;)
+            self.getParticle(num_particles_width - 1 - i, 0).makeUnmovable()
 
 
     ''' drawing the cloth as a smooth shaded (and colored according to column) OpenGL triangular mesh
@@ -223,33 +218,25 @@ class Cloth(bpy.types.Operator):
     (x,y+1) *--* (x+1,y+1)
 
     '''
-    void drawShaded()
-    {
-        // reset normals (which where written to last frame)
-        std::vector<Particle>::iterator particle;
-        for (particle = particles.begin(); particle != particles.end(); particle++)
-        {
-            (*particle).resetNormal();
-        }
+    def drawShaded():
+        # reset normals (which where written to last frame)
+        for particle in self.particles :
+            particle.resetNormal()
 
-        //create smooth per particle normals by adding up all the (hard) triangle normals that each particle is part of
-        for (int x = 0; x < num_particles_width - 1; x++)
-        {
-            for (int y = 0; y < num_particles_height - 1; y++)
-            {
-                Vec3 normal = calcTriangleNormal(getParticle(x + 1, y), getParticle(x, y), getParticle(x, y + 1));
-                getParticle(x + 1, y)->addToNormal(normal);
-                getParticle(x, y)->addToNormal(normal);
-                getParticle(x, y + 1)->addToNormal(normal);
+        #create smooth per particle normals by adding up all the (hard) triangle normals that each particle is part of
+        for x in range(0, self.num_particles_width - 1) :
+            for y in range(0, self.num_particles_height) :
+                normal = self.calcTriangleNormal(self.getParticle(x + 1, y), self.getParticle(x, y), self.getParticle(x, y + 1))
+                self.getParticle(x + 1, y).addToNormal(normal)
+                self.getParticle(x, y).addToNormal(normal)
+                self.getParticle(x, y + 1).addToNormal(normal)
 
-                normal = calcTriangleNormal(getParticle(x + 1, y + 1), getParticle(x + 1, y), getParticle(x, y + 1));
-                getParticle(x + 1, y + 1)->addToNormal(normal);
-                getParticle(x + 1, y)->addToNormal(normal);
-                getParticle(x, y + 1)->addToNormal(normal);
-            }
-        }
+                normal = self.calcTriangleNormal(self.getParticle(x + 1, y + 1), self.getParticle(x + 1, y), self.getParticle(x, y + 1))
+                self.getParticle(x + 1, y + 1).addToNormal(normal)
+                self.getParticle(x + 1, y).addToNormal(normal)
+                self.getParticle(x, y + 1).addToNormal(normal)
 
-        glBegin(GL_TRIANGLES);
+        '''glBegin(GL_TRIANGLES);
         for (int x = 0; x < num_particles_width - 1; x++)
         {
             for (int y = 0; y < num_particles_height - 1; y++)
@@ -265,72 +252,45 @@ class Cloth(bpy.types.Operator):
             }
         }
         glEnd();
-    }
+        '''
 
-    /* this is an important methods where the time is progressed one time step for the entire cloth.
+    ''' this is an important methods where the time is progressed one time step for the entire cloth.
     This includes calling satisfyConstraint() for every constraint, and calling timeStep() for all particles
-    */
-    void timeStep()
-    {
-        std::vector<Constraint>::iterator constraint;
-        for (int i = 0; i < CONSTRAINT_ITERATIONS; i++) // iterate over all constraints several times
-        {
-            for (constraint = constraints.begin(); constraint != constraints.end(); constraint++)
-            {
-                (*constraint).satisfyConstraint(); // satisfy constraint.
-            }
-        }
+    '''
+    def timeStep():
+        for i in range (0, CONSTRAINT_ITERATIONS):# iterate over all constraints several times
+            for constraint in self.constraints:
+                constraint.satisfyConstraint() # satisfy constraint.
 
-        std::vector<Particle>::iterator particle;
-        for (particle = particles.begin(); particle != particles.end(); particle++)
-        {
-            (*particle).timeStep(); // calculate the position of each particle at the next time step.
-        }
-    }
+        for particle in self.particles:
+            particle.timeStep() # calculate the position of each particle at the next time step.
 
-    /* used to add gravity (or any other arbitrary vector) to all particles*/
-    void addForce(const Vec3 direction)
-    {
-        std::vector<Particle>::iterator particle;
-        for (particle = particles.begin(); particle != particles.end(); particle++)
-        {
-            (*particle).addForce(direction); // add the forces to each particle
-        }
+    # used to add gravity (or any other arbitrary vector) to all particles*/
+    def addForce(direction)
+        for particle in particles:
+            particle.addForce(direction) # add the forces to each particle
 
-    }
+    # used to add wind forces to all particles, is added for each triangle since the final force is proportional 
+    # to the triangle area as seen from the wind direction
+    def windForce(direction)
+        for x in range(0,self.num_particles_width):
+            for y in range(0,self.num_particles_height):
+                self.addWindForcesForTriangle(self.getParticle(x + 1, y), self.getParticle(x, y), self.getParticle(x, y + 1), direction)
+                self.addWindForcesForTriangle(self.getParticle(x + 1, y + 1), self.getParticle(x + 1, y), self.getParticle(x, y + 1), direction)
 
-    /* used to add wind forces to all particles, is added for each triangle since the final force is proportional to the triangle area as seen from the wind direction*/
-    void windForce(const Vec3 direction)
-    {
-        for (int x = 0; x < num_particles_width - 1; x++)
-        {
-            for (int y = 0; y < num_particles_height - 1; y++)
-            {
-                addWindForcesForTriangle(getParticle(x + 1, y), getParticle(x, y), getParticle(x, y + 1), direction);
-                addWindForcesForTriangle(getParticle(x + 1, y + 1), getParticle(x + 1, y), getParticle(x, y + 1), direction);
-            }
-        }
-    }
 
-    /* used to detect and resolve the collision of the cloth with the ball.
+    ''' used to detect and resolve the collision of the cloth with the ball.
     This is based on a very simples scheme where the position of each particle is simply compared to the sphere and corrected.
     This also means that the sphere can "slip through" if the ball is small enough compared to the distance in the grid bewteen particles
-    */
-    void ballCollision(const Vec3 center, const float radius)
-    {
-        std::vector<Particle>::iterator particle;
-        for (particle = particles.begin(); particle != particles.end(); particle++)
-        {
-            Vec3 v = (*particle).getPos() - center;
-            float l = v.length();
-            if (v.length() < radius) // if the particle is inside the ball
-            {
-                (*particle).offsetPos(v.normalized()*(radius - l)); // project the particle to the surface of the ball
-            }
-        }
-    }
+    '''
+    def ballCollision(center, radius)
+        
+        for particle in self.particles:
+            v = particle.getPos() - center
+            l = v.length()
+            if v.length() < radius: # if the particle is inside the ball
+                particle.offsetPos(v.normalized()*(radius - l)) # project the particle to the surface of the ball
 
-};
 
 
 
