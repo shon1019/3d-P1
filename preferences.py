@@ -1,22 +1,20 @@
 import bpy
+from bpy.props import *
 
 
-
-class BvhUtilitiesPreferences(bpy.types.AddonPreferences):
-    bl_idname = __package__
 
 class hairUtilitiesPreferences(bpy.types.AddonPreferences):
     bl_idname = __package__
+    mass = FloatProperty(name="質量", default=1)
+    windForce = FloatVectorProperty(name = "風力", default = (0.5, 0, 0.2))
+    gravity = FloatVectorProperty(name = "風力", default = (0, -9.8, 0))
+    # mesh variables
+    numX = IntProperty(name = "寬", default=25)
+    numY = IntProperty(name = "高", default=25)
 
-classes = (
-    BvhUtilitiesPreferences,
-    hairUtilitiesPreferences,
-)
 
 def register():
-    for cls in classes:
-        bpy.utils.register_class(cls)
+    bpy.utils.register_class(hairUtilitiesPreferences)
 
 def unregister():
-    for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+    bpy.utils.unregister_class(hairUtilitiesPreferences)

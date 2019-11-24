@@ -19,17 +19,8 @@ import math
  
 
 
-class ParticleCreaterUtils():
-    # 布的大小 100 * 100
-    particleSizw = 100
-    # particle 的距離 1
-    particledis = 1
-    # 重力
-    gravity = -9.8
 
-    # mesh variables
-    numX = 25
-    numY = 25
+class ParticleCreaterUtils():
 
     # Just below are three global variables holding the actual animated stuff; Cloth and Ball 
     cloth1 = None 
@@ -52,15 +43,18 @@ class ParticleCreaterUtils():
     amp = 1
     scale = 1
 
+
+
 def updateMesh():
     #fill faces array
     count = 0
-    for i in range (0, ParticleCreaterUtils.numY *(ParticleCreaterUtils.numX-1)):
-        if count < ParticleCreaterUtils.numY-1:
+    pref = bpy.context.preferences.addons[__package__].preferences
+    for i in range (0, pref.numY *(pref.numX-1)):
+        if count < pref.numY-1:
             A = i
             B = i+1
-            C = (i+ParticleCreaterUtils.numY)+1
-            D = (i+ParticleCreaterUtils.numY)
+            C = (i+ pref.numY)+1
+            D = (i+ pref.numY)
             face = (A,B,C,D)
             ParticleCreaterUtils.faces.append(face)
             count = count + 1
@@ -71,7 +65,6 @@ def updateMesh():
 
 class Particle():
     movable = True  # can the particle move or not ? used to pin parts of the cloth
-    mass = 1  # the mass of the particle (is always 1 in this example)
     pos = Vector((0, 0, 0))  # the current position of the particle in 3D space
     old_pos = Vector((0, 0, 0))  # the position of the particle in the previous time step, used as part of the verlet numerical integration scheme
     acceleration = Vector((0, 0, 0))  # a vector representing the current acceleration of the particle
@@ -82,7 +75,8 @@ class Particle():
         self.old_pos = pos
 
     def addForce(self, f):
-        self.acceleration += f / self.mass
+        pref = bpy.context.preferences.addons[__package__].preferences
+        self.acceleration += f / pref.mass
 
     '''This is one of the important methods, where the time is progressed a single step size (TIME_STEPSIZE)
        The method is called by Cloth.time_step()
@@ -324,13 +318,14 @@ class Cloth():
 
 #update ------------------------------------------------------
 def in_1_seconds():
+    pref = bpy.context.preferences.addons[__package__].preferences
     #calculating positions
     ParticleCreaterUtils.ball_time += 1
     
     ParticleCreaterUtils.ball_pos[2] = math.cos(ParticleCreaterUtils.ball_time / 50.0) * 7
     ParticleCreaterUtils.ball.location = ParticleCreaterUtils.ball_pos
-    ParticleCreaterUtils.cloth1.addForce( Vector((0, -9.8, 0))*TIME_STEPSIZE2 ) # add gravity each frame, pointing down
-    ParticleCreaterUtils.cloth1.windForce(Vector((0.5, 0, 0.2))*TIME_STEPSIZE2); # generate some wind each frame
+    ParticleCreaterUtils.cloth1.addForce( Vector(pref.gravity) * TIME_STEPSIZE2 ) # add gravity each frame, pointing down
+    ParticleCreaterUtils.cloth1.windForce( Vector(pref.windForce) * TIME_STEPSIZE2); # generate some wind each frame
     ParticleCreaterUtils.cloth1.timeStep() # calculate the particle positions of the next frame
     ParticleCreaterUtils.cloth1.ballCollision(ParticleCreaterUtils.ball_pos, ParticleCreaterUtils.ball_radius) # resolve collision with the ball
     
