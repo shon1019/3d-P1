@@ -38,10 +38,6 @@ class ParticleCreaterUtils():
 
     mesh = None
     
-    # wave variables
-    freq = 1
-    amp = 1
-    scale = 1
 
 
 
@@ -333,8 +329,8 @@ def in_1_seconds():
     ParticleCreaterUtils.cloth1.addForce( Vector(pref.gravity) * TIME_STEPSIZE2 ) # add gravity each frame, pointing down
     ParticleCreaterUtils.cloth1.windForce( Vector(pref.windForce) * TIME_STEPSIZE2); # generate some wind each frame
     ParticleCreaterUtils.cloth1.timeStep() # calculate the particle positions of the next frame
-    ParticleCreaterUtils.cloth1.ballCollision(ParticleCreaterUtils.ball_pos, ParticleCreaterUtils.ball_radius) # resolve collision with the ball
-    ParticleCreaterUtils.cloth1.floorCollision(-5) # resolve collision with the ball
+    #ParticleCreaterUtils.cloth1.ballCollision(ParticleCreaterUtils.ball_pos, ParticleCreaterUtils.ball_radius) # resolve collision with the ball
+    #ParticleCreaterUtils.cloth1.floorCollision(-5) # resolve collision with the ball
     
     # drawing
     ParticleCreaterUtils.cloth1.drawShaded() # finally draw the cloth with smooth shading

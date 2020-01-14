@@ -10,6 +10,13 @@ from bpy.props import (
 from bpy.types import Operator
 from . import SolveLeastSquare
 
+'''
+1.移除root位移
+2.算最近pose
+3.concate
+4.camera focus
+'''
+
 class bvhUtils():
     firstLoad = False
     #當前物體
@@ -52,7 +59,9 @@ class bvhReader(bpy.types.Operator):
         bvhUtils.obj = obj
         if bvhUtils.firstLoad :
             #地2隻不要顯示
-            obj.hide = True
+            obj.hide_viewport = True
+
+        bvhUtils.firstLoad = True
         for i in range (1, context.scene.frame_end):
             sc.frame_set(i)
             tmpLocation = []
