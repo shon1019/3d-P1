@@ -313,6 +313,12 @@ class Cloth():
             if v.length < radius: # if the particle is inside the ball
                 particle.offsetPos(v.normalized()*(radius - v.length)) # project the particle to the surface of the ball
 
+    def floorCollision(self, y):
+        for particle in self.particles:
+            if particle.pos.y < y: # if the particle is inside the ball
+                p = particle.pos
+                particle.offsetPos(Vector((0, (y - p[1])/10, 0))) # project the particle to the surface of the ball
+
 
 
 
@@ -328,6 +334,7 @@ def in_1_seconds():
     ParticleCreaterUtils.cloth1.windForce( Vector(pref.windForce) * TIME_STEPSIZE2); # generate some wind each frame
     ParticleCreaterUtils.cloth1.timeStep() # calculate the particle positions of the next frame
     ParticleCreaterUtils.cloth1.ballCollision(ParticleCreaterUtils.ball_pos, ParticleCreaterUtils.ball_radius) # resolve collision with the ball
+    ParticleCreaterUtils.cloth1.floorCollision(-5) # resolve collision with the ball
     
     # drawing
     ParticleCreaterUtils.cloth1.drawShaded() # finally draw the cloth with smooth shading

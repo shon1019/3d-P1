@@ -103,15 +103,43 @@ class aaa(bpy.types.Operator):
         hair_And_Cloth.ParticleCreaterUtils.cloth1 = hair_And_Cloth.Cloth(14, 10, pref.numX, pref.numX) # one Cloth object of the Cloth class
         bpy.context.collection.objects.link(hair_And_Cloth.ParticleCreaterUtils.cloth)
         bpy.ops.mesh.primitive_uv_sphere_add(radius = 1, location = hair_And_Cloth.ParticleCreaterUtils.ball_pos)
+        
         hair_And_Cloth.ParticleCreaterUtils.ball = context.object
+        bpy.ops.mesh.primitive_plane_add(size = 10, rotation = (1.57, 0, 0), location = hair_And_Cloth.ParticleCreaterUtils.ball_pos)
 
         hair_And_Cloth.register()
+        return {'FINISHED'}
+
+class saveConfig(bpy.types.Operator):
+    """saveConfig"""
+    bl_idname = "ldops.saveconfig"
+    bl_label = "saveConfig"
+
+    def execute(self, context):
+        pref = bpy.context.preferences.addons[__package__].preferences
+        bpy.context.scene['clothConfig'] = [pref.mass, pref.windForce, pref.gravity, pref.numX, pref.numY] 
+        return {'FINISHED'}
+
+class readConfig(bpy.types.Operator):
+    """readConfig"""
+    bl_idname = "ldops.readconfig"
+    bl_label = "readConfig"
+
+    def execute(self, context):
+        pref = bpy.context.preferences.addons[__package__].preferences
+        pref.mass = bpy.context.scene['clothConfig'][0]
+        pref.windForce = bpy.context.scene['clothConfig'][1]
+        pref.gravity = bpy.context.scene['clothConfig'][2]
+        pref.numX = bpy.context.scene['clothConfig'][3]
+        pref.numY = bpy.context.scene['clothConfig'][4]
         return {'FINISHED'}
 
 classes = (
     P1,
     P2,
     aaa,
+    saveConfig,
+    readConfig,
 )
 
 def register():
