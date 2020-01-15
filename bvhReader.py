@@ -37,6 +37,35 @@ class recompute(bpy.types.Operator):
         bpy.ops.object.parent_set(type='FOLLOW') #follow path
         return {'FINISHED'}
 
+class concat(bpy.types.Operator):
+    bl_idname = "ldops.concat"
+    bl_label = "concat"
+
+    def execute(self, context):
+        obj = context.object
+        obj.animation_data.action = None
+        obj.animation_data.nla_tracks.new()
+        obj.animation_data.nla_tracks.new()
+        #------------------------------------------------------------------
+        obj.animation_data.nla_tracks['NlaTrack'].strips.new("dance", 1.0, bpy.data.actions['dance'])
+        obj.animation_data.nla_tracks['NlaTrack.001'].strips.new("dance", 1.0, bpy.data.actions['dance'])
+        return {'FINISHED'}
+
+class cameraTrack(bpy.types.Operator):
+    bl_idname = "ldops.cameraTrack"
+    bl_label = "cameraTrack"
+
+    def execute(self, context):
+        camera = bpy.data.objects['Camera']
+        targetobj = context.object
+        ttc = camera.constraints.new(type='TRACK_TO')
+        ttc.target = targetobj
+        ttc.track_axis = 'TRACK_NEGATIVE_Z'
+        ttc.up_axis = 'UP_Y'
+
+        #trackLine----------------------------
+        return {'FINISHED'}
+
 
 class bvhReader(bpy.types.Operator):
     """bvhReader"""
@@ -60,9 +89,11 @@ class bvhReader(bpy.types.Operator):
         if bvhUtils.firstLoad :
             #地2隻不要顯示
             obj.hide_viewport = True
+        aniTime = 0
 
         bvhUtils.firstLoad = True
         for i in range (1, context.scene.frame_end):
+            aniTime += 1
             sc.frame_set(i)
             tmpLocation = []
             tmpLocation.append(obj.pose.bones['Hips'].location[0]) 
@@ -109,6 +140,16 @@ class bvhReader(bpy.types.Operator):
         bvhUtils.curveOB = curveOB
         scn = context.scene
         scn.collection.objects.link(curveOB)
+
+        #remove all root translate
+        bvh = context.object
+        for i in range(1, aniTime):
+            sc.frame_set(i)
+            bvh.pose.bones['Hips'].keyframe_delete(data_path="location",frame = i)
+            obj.pose.bones['Hips'].location[0] = 0
+            obj.pose.bones['Hips'].location[1] = 0
+        
+
         return {'FINISHED'}
 
 
@@ -122,3 +163,19 @@ def unregister():
     bpy.utils.unregister_class(bvhReader)
     bpy.utils.register_class(recompute)
 
+
+'''
+obj.animation_data.action = None
+C.object.animation_data.nla_tracks.new()
+C.object.animation_data.nla_tracks.new()
+C.object.animation_data.nla_tracks['NlaTrack'].strips.new("dance", 1.0, bpy.data.actions['dance'])
+C.object.animation_data.nla_tracks['NlaTrack.001'].strips.new("dance", 1.0, bpy.data.actions['dance'])
+'''
+
+'''
+targetobj = bpy.data.objects['']
+ttc = camera.constraints.new(type='TRACK_TO')
+ttc.target = targetobj
+ttc.track_axis = 'TRACK_NEGATIVE_Z'
+ttc.up_axis = 'UP_Y'
+'''

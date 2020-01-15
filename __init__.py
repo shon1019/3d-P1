@@ -76,6 +76,10 @@ class P2(bpy.types.Panel):
         pref = bpy.context.preferences.addons[__package__].preferences
         layout = self.layout
         row = layout.row()
+        row.operator("ldops.saveconfig", text = "saveconfig")
+        row = layout.row()
+        row.operator("ldops.readconfig", text = "readconfig")
+        row = layout.row()
         row.operator("ldops.aaa", text = "comput")
         row = layout.row()
         row.prop(pref, "mass", text = "mass") 
