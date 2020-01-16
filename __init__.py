@@ -59,6 +59,9 @@ class P1(bpy.types.Panel):
         row.operator("ldops.bvh_reader", text = "import bvh")
         row.operator("object.draw_op", text = "Draw Ori Line")
         row.operator("ldops.recompute", text = "comput")
+        row = layout.row()
+        row.operator("ldops.concat", text = "concat")
+        row.operator("ldops.camertrack", text = "cameraTrack")
 
 # Main Operators
 class P2(bpy.types.Panel):
