@@ -85,6 +85,8 @@ class P2(bpy.types.Panel):
         row = layout.row()
         row.operator("ldops.aaa", text = "comput")
         row = layout.row()
+        row.operator("ldops.hair", text = "hair")
+        row = layout.row()
         row.prop(pref, "mass", text = "mass") 
         row = layout.row()
         row.prop(pref, "numX", text = "width")     
@@ -124,7 +126,7 @@ class saveConfig(bpy.types.Operator):
 
     def execute(self, context):
         pref = bpy.context.preferences.addons[__package__].preferences
-        bpy.context.scene['clothConfig'] = [pref.mass, pref.windForce, pref.gravity, pref.numX, pref.numY] 
+        bpy.context.scene['clothConfig'] = [pref.mass, pref.numX, pref.numY] 
         return {'FINISHED'}
 
 class readConfig(bpy.types.Operator):
@@ -135,10 +137,19 @@ class readConfig(bpy.types.Operator):
     def execute(self, context):
         pref = bpy.context.preferences.addons[__package__].preferences
         pref.mass = bpy.context.scene['clothConfig'][0]
-        pref.windForce = bpy.context.scene['clothConfig'][1]
-        pref.gravity = bpy.context.scene['clothConfig'][2]
-        pref.numX = bpy.context.scene['clothConfig'][3]
-        pref.numY = bpy.context.scene['clothConfig'][4]
+        pref.numX = bpy.context.scene['clothConfig'][1]
+        pref.numY = bpy.context.scene['clothConfig'][2]
+        return {'FINISHED'}
+
+class hair(bpy.types.Operator):
+    """hair"""
+    bl_idname = "ldops.hair"
+    bl_label = "aaa"
+
+    def execute(self, context):
+        print(bpy.path.abspath("/hair.blend"))
+        bpy.ops.wm.open_mainfile(filepath=bpy.path.abspath(".\hair.blend"))
+        
         return {'FINISHED'}
 
 classes = (
@@ -147,6 +158,7 @@ classes = (
     aaa,
     saveConfig,
     readConfig,
+    hair,
 )
 
 def register():
