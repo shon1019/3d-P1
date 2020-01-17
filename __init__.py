@@ -85,8 +85,6 @@ class P2(bpy.types.Panel):
         row = layout.row()
         row.operator("ldops.aaa", text = "comput")
         row = layout.row()
-        row.operator("ldops.hair", text = "hair")
-        row = layout.row()
         row.prop(pref, "mass", text = "mass") 
         row = layout.row()
         row.prop(pref, "numX", text = "width")     
@@ -141,23 +139,12 @@ class readConfig(bpy.types.Operator):
         pref.numY = bpy.context.scene['clothConfig'][2]
         return {'FINISHED'}
 
-class hair(bpy.types.Operator):
-    """hair"""
-    bl_idname = "ldops.hair"
-    bl_label = "aaa"
-
-    def execute(self, context):
-        bpy.ops.wm.open_mainfile(filepath="D:\sof/Blender2.8/2.80/scripts/addons/3d-P1/hair.blend")
-        
-        return {'FINISHED'}
-
 classes = (
     P1,
     P2,
     aaa,
     saveConfig,
     readConfig,
-    hair,
 )
 
 def register():
