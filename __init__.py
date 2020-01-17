@@ -147,8 +147,7 @@ class hair(bpy.types.Operator):
     bl_label = "aaa"
 
     def execute(self, context):
-        print(bpy.path.abspath("/hair.blend"))
-        bpy.ops.wm.open_mainfile(filepath=bpy.path.abspath(".\hair.blend"))
+        bpy.ops.wm.open_mainfile(filepath="D:\sof/Blender2.8/2.80/scripts/addons/3d-P1/hair.blend")
         
         return {'FINISHED'}
 
