@@ -80,7 +80,6 @@ class cameraTrack(bpy.types.Operator):
 
 
 class bvhReader(bpy.types.Operator):
-    """bvhReader"""
     bl_idname = "ldops.bvh_reader"
     bl_label = "bvhReader"
 

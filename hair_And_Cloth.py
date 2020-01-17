@@ -1,27 +1,19 @@
 import bpy
 
-
 from bpy.props import (
         StringProperty,
         IntProperty,
         PointerProperty,
         )
 
+import math
 from bpy.types import Operator
 from mathutils import Vector
 
-
 DAMPING = 0.01  # how much to damp the cloth simulation each frame
-TIME_STEPSIZE2 = 0.2 * 0.2  # how large time step each particle takes each frame
 CONSTRAINT_ITERATIONS = 15 # how many iterations of constraint satisfaction each frame (more is rigid, less is soft)
 
-import math
- 
-
-
-
 class ParticleCreaterUtils():
-
     # Just below are three global variables holding the actual animated stuff; Cloth and Ball 
     cloth1 = None 
 
@@ -38,9 +30,7 @@ class ParticleCreaterUtils():
 
     mesh = None
     
-
-
-
+    
 def updateMesh():
     #fill faces array
     count = 0
@@ -57,14 +47,16 @@ def updateMesh():
         else:
             count = 0
 
-
-
 class Particle():
     movable = True  # can the particle move or not ? used to pin parts of the cloth
     pos = Vector((0, 0, 0))  # the current position of the particle in 3D space
     old_pos = Vector((0, 0, 0))  # the position of the particle in the previous time step, used as part of the verlet numerical integration scheme
+    velocity = Vector((0, 0, 0))
     acceleration = Vector((0, 0, 0))  # a vector representing the current acceleration of the particle
     accumulated_normal = Vector((0, 0, 0)) # an accumulated normal (i.e. non normalized), used for OpenGL soft shading
+    
+    simVelocity = Vector((0, 0, 0))
+    simAcce = Vector((0, 0, 0))
     
     def __init__(self, pos):
         self.pos = pos
@@ -78,14 +70,44 @@ class Particle():
        The method is called by Cloth.time_step()
        Given the equation "force = mass * acceleration" the next position is found through verlet integration'''
 
-    def timeStep(self):
+    def timeStep(self, time = 0.02, mode = "Eular"):
+        if self.movable:
+            if mode == "Eular":
+                # print("Eular")
+                self.simVelocity = self.velocity
+                self.simAcce = self.acceleration
+            elif mode == "RungeKutta2":
+                # print("RungeKutta2")
+                self.simVelocity = self.velocity + self.simAcce / 2 * time
+                self.simAcce = self.acceleration
+            elif mode == "Verlet":
+                # print("Verlet")
+                pref = bpy.context.preferences.addons[__package__].preferences
+                self.simAcce = self.acceleration
+                self.simVelocity = self.velocity + self.simAcce * time
+                self.simVelocity = self.velocity + (self.simVelocity + self.velocity) / (2 * pref.mass) * time
+            elif mode == "Leapfrog":
+                # print("Leapfrog")
+                # tmp : need to use the acceleration of next frame
+                self.simAcce = self.acceleration
+                self.simVelocity = self.velocity + (self.simAcce + self.acceleration) / 2 * time
+            elif mode == "Symplectic":
+                # print("Symplectic")
+                self.simVelocity = self.velocity + self.simAcce * time
+                self.simAcce = self.acceleration
+                
+    def updatePos(self, time = 0.02, mode = "Eular"):
         if self.movable:
             temp = self.pos
-            self.pos = self.pos + (self.pos - self.old_pos) * (1.0 - DAMPING)  + self.acceleration * TIME_STEPSIZE2
-            # print(self.pos, self.old_pos, self.acceleration * TIME_STEPSIZE2)
+            if mode == "Verlet":
+                self.pos = self.pos + (self.pos - self.old_pos) * (1.0 - DAMPING) + self.simVelocity * time + self.simAcce / 2 * time * time
+            else:
+                self.pos = self.pos + (self.pos - self.old_pos) * (1.0 - DAMPING) + self.simVelocity * time
+                self.simVelocity = self.velocity + self.simAcce * time
+            self.velocity = self.simVelocity
+            self.acceleration = self.simAcce
             self.old_pos = temp
             self.acceleration = Vector((0, 0, 0))# acceleration is reset since it HAS been translated into a change in position(and implicitely into velocity)
-
     # Vec3 & getPos() {return pos;}
 
     def resetAcceleration(self):
@@ -102,7 +124,6 @@ class Particle():
         self.accumulated_normal += normal.normalized()
 
     #Vec3 & getNormal() {return accumulated_normal;} // notice, the normal is not unit length
-
     def resetNormal(self):
         self.accumulated_normal = Vector((0, 0, 0))
 
@@ -132,19 +153,17 @@ class Constraint():
         self.p1.offsetPos(correctionVectorHalf) # correctionVectorHalf is pointing from p1 to p2, so the length should move p1 half the length needed to satisfy the constraint.
         self.p2.offsetPos(-correctionVectorHalf) # we must move p2 the negative direction of correctionVectorHalf since it points from p2 to p1, and not p1 to p2.
 
-
 class Cloth():
-
+    resetFlag = False
+    width = 5
+    height = 5
     num_particles_width = 10 # number of particles in "width" direction
     num_particles_height = 10 # number of particles in "height" direction
     # total number of particles is num_particles_width*num_particles_height
 
     particles = [] # all particles that are part of this 　cloth　****vector < Particle > 
     constraints = [] # alle constraints between particles as part of this cloth　****vector < Constraint >
-
-    cloth = None
-    mesh = None
-
+    
     def getParticle(self, x, y) :
         return self.particles[y* self.num_particles_width + x]
     #------------------------------------construct??
@@ -179,27 +198,22 @@ class Cloth():
     #-------------------------------------------------------------
 
     '''This is a important constructor for the entire system of particles and constraints'''
-    def __init__(self, width, height, num_particles_width, num_particles_height): 
-        
+    def __init__(self, width = 5, height = 5, num_particles_width = 10, num_particles_height = 10): 
+        self.width = width
+        self.height = height
         self.num_particles_width = num_particles_width
         self.num_particles_height = num_particles_height
         #----------------------------------------------
         #self.particles.resize(num_particles_width*num_particles_height); // I am essentially using this vector as an array with room for num_particles_width*num_particles_height particles
 
         # creating particles in a grid of particles from (0, 0, 0) to(width, -height, 0)
-        
-        '''for y in range(0, self.num_particles_height):
-            for x in range(0, self.num_particles_width):
-                pos = Vector((width * (x / self.num_particles_width),
-                    -height * (y / self.num_particles_height), 0))
-                self.particles[y * self.num_particles_width + x] = Particle(pos) # insert particle in column x at y'th row
-        '''
         for y in range(0, self.num_particles_height):
             for x in range(0, self.num_particles_width):
                 pos = Vector((width * (x / self.num_particles_width),
                     -height * (y / self.num_particles_height), 0))
                 self.particles.append(Particle(pos)) # insert particle in column x at y'th row
                 ParticleCreaterUtils.verts.append(pos)
+        #update mesh
         updateMesh()
         ParticleCreaterUtils.mesh.from_pydata(ParticleCreaterUtils.verts, [], ParticleCreaterUtils.faces)
         ParticleCreaterUtils.mesh.update(calc_edges=True)
@@ -214,7 +228,6 @@ class Cloth():
                     self.makeConstraint(self.getParticle(x, y), self.getParticle(x + 1, y + 1))
                 if x < self.num_particles_width - 1 and y < self.num_particles_height - 1:
                     self.makeConstraint(self.getParticle(x + 1, y), self.getParticle(x, y + 1))
-
 
         # Connecting secondary neighbors with constraints(distance 2 and sqrt(4) in the grid)
         for x in range (0, self.num_particles_width):
@@ -235,8 +248,6 @@ class Cloth():
 
             self.getParticle(0 + i, 0).offsetPos(Vector((-0.5, 0.0, 0.0))) # moving the particle a bit towards the center, to make it hang more natural - because I like it;)
             self.getParticle(num_particles_width - 1 - i, 0).makeUnmovable()
-
-
     ''' drawing the cloth as a smooth shaded (and colored according to column) OpenGL triangular mesh
     Called from the display() method
     The cloth is seen as consisting of triangles for four particles in the grid as follows:
@@ -245,7 +256,6 @@ class Cloth():
             | /|
             |/ |
     (x,y+1) *--* (x+1,y+1)
-
     '''
     def drawShaded(self):
         # reset normals (which where written to last frame)
@@ -270,21 +280,17 @@ class Cloth():
             for y in range(0, self.num_particles_height):
                 ParticleCreaterUtils.cloth.data.vertices[y* self.num_particles_width + x].co = self.getParticle(x, y).pos
 
-                
-                
-       
-
     ''' this is an important methods where the time is progressed one time step for the entire cloth.
     This includes calling satisfyConstraint() for every constraint, and calling timeStep() for all particles
     '''
-    def timeStep(self):
+    def timeStep(self, time = 0.02, mode = "Eular"):
         for i in range (0, CONSTRAINT_ITERATIONS):# iterate over all constraints several times
             for constraint in self.constraints:
                 constraint.satisfyConstraint() # satisfy constraint.
 
         for particle in self.particles:
-            particle.timeStep() # calculate the position of each particle at the next time step.
-
+            particle.timeStep(time, mode) # calculate the position of each particle at the next time step.
+            particle.updatePos(time, mode)
     # used to add gravity (or any other arbitrary vector) to all particles*/
     def addForce(self, direction):
         for particle in self.particles:
@@ -297,7 +303,6 @@ class Cloth():
             for y in range(0, self.num_particles_height - 1):
                 self.addWindForcesForTriangle(self.getParticle(x + 1, y), self.getParticle(x, y), self.getParticle(x, y + 1), direction)
                 self.addWindForcesForTriangle(self.getParticle(x + 1, y + 1), self.getParticle(x + 1, y), self.getParticle(x, y + 1), direction)
-
 
     ''' used to detect and resolve the collision of the cloth with the ball.
     This is based on a very simples scheme where the position of each particle is simply compared to the sphere and corrected.
@@ -314,29 +319,83 @@ class Cloth():
             if particle.pos.y < y: # if the particle is inside the ball
                 p = particle.pos
                 particle.offsetPos(Vector((0, (y - p[1])/10, 0))) # project the particle to the surface of the ball
+    
+    def Reset(self):
+        self.particles = []
+        self.constraints = []
+        # creating particles in a grid of particles from (0, 0, 0) to(width, -height, 0)
+        for y in range(0, self.num_particles_height):
+            for x in range(0, self.num_particles_width):
+                pos = Vector((self.width * (x / self.num_particles_width),
+                    -self.height * (y / self.num_particles_height), 0))
+                self.particles.append(Particle(pos)) # insert particle in column x at y'th row
+        # Connecting immediate neighbor particles with constraints(distance 1 and sqrt(2) in the grid)
+        for x in range (0, self.num_particles_width):
+            for y in range (0,self.num_particles_height):
+                if x < self.num_particles_width - 1:
+                    self.makeConstraint(self.getParticle(x, y), self.getParticle(x + 1, y))
+                if y < self.num_particles_height - 1:
+                    self.makeConstraint(self.getParticle(x, y), self.getParticle(x, y + 1))
+                if x < self.num_particles_width - 1 and y < self.num_particles_height - 1:
+                    self.makeConstraint(self.getParticle(x, y), self.getParticle(x + 1, y + 1))
+                if x < self.num_particles_width - 1 and y < self.num_particles_height - 1:
+                    self.makeConstraint(self.getParticle(x + 1, y), self.getParticle(x, y + 1))
 
+        # Connecting secondary neighbors with constraints(distance 2 and sqrt(4) in the grid)
+        for x in range (0, self.num_particles_width):
+            for y in range (0, self.num_particles_height):
+                if x < self.num_particles_width - 2: 
+                    self.makeConstraint(self.getParticle(x, y), self.getParticle(x + 2, y))
+                if y < self.num_particles_height - 2: 
+                    self.makeConstraint(self.getParticle(x, y), self.getParticle(x, y + 2))
+                if x < self.num_particles_width - 2 and y < self.num_particles_height - 2:
+                    self.makeConstraint(self.getParticle(x, y), self.getParticle(x + 2, y + 2))
+                if x < self.num_particles_width - 2 and y < self.num_particles_height - 2:
+                    self.makeConstraint(self.getParticle(x + 2, y), self.getParticle(x, y + 2))
 
-
-
+        # making the upper left most three and right most three particles unmovable
+        for i in range (0,4):
+            self.getParticle(0 + i, 0).offsetPos(Vector((0.5, 0.0, 0.0))) # moving the particle a bit towards the center, to make it hang more natural - because I like it;)
+            self.getParticle(0 + i, 0).makeUnmovable()
+            self.getParticle(0 + i, 0).offsetPos(Vector((-0.5, 0.0, 0.0))) # moving the particle a bit towards the center, to make it hang more natural - because I like it;)
+            self.getParticle(self.num_particles_width - 1 - i, 0).makeUnmovable()
+    
+def resetCloth():
+    if ParticleCreaterUtils.cloth1:
+        ParticleCreaterUtils.cloth1.resetFlag = True
+        # ParticleCreaterUtils.ball_time = 0
+        # ParticleCreaterUtils.cloth1.Reset()
+        # ParticleCreaterUtils.cloth1.drawShaded()
+    
 #update ------------------------------------------------------
 def in_1_seconds():
     pref = bpy.context.preferences.addons[__package__].preferences
-    #calculating positions
+    timeStep = pref.timeStep
+    if not ParticleCreaterUtils.cloth1:
+        return timeStep
+    if ParticleCreaterUtils.cloth1.resetFlag == True:
+        ParticleCreaterUtils.ball_time = 0
+        ParticleCreaterUtils.cloth1.Reset()
+        ParticleCreaterUtils.cloth1.drawShaded()
+        ParticleCreaterUtils.cloth1.resetFlag = False
+        return timeStep
+    # calculating positions
     ParticleCreaterUtils.ball_time += 1
     
     ParticleCreaterUtils.ball_pos[2] = math.cos(ParticleCreaterUtils.ball_time / 50.0) * 7
     ParticleCreaterUtils.ball.location = ParticleCreaterUtils.ball_pos
-    ParticleCreaterUtils.cloth1.addForce( Vector(pref.gravity) * TIME_STEPSIZE2 ) # add gravity each frame, pointing down
-    ParticleCreaterUtils.cloth1.windForce( Vector(pref.windForce) * TIME_STEPSIZE2); # generate some wind each frame
-    ParticleCreaterUtils.cloth1.timeStep() # calculate the particle positions of the next frame
-    #ParticleCreaterUtils.cloth1.ballCollision(ParticleCreaterUtils.ball_pos, ParticleCreaterUtils.ball_radius) # resolve collision with the ball
-    ParticleCreaterUtils.cloth1.floorCollision(-5) # resolve collision with the ball
+    ParticleCreaterUtils.cloth1.addForce( Vector(pref.gravity) * timeStep * timeStep) # add gravity each frame, pointing down
+    ParticleCreaterUtils.cloth1.windForce( Vector(pref.windForce) * timeStep* timeStep); # generate some wind each frame
+    #integrator method
+    # getVelocityTime(timeStep, ParticleCreaterUtils.cloth1)
+    #-----------------
+    ParticleCreaterUtils.cloth1.timeStep(timeStep, mode = pref.integrateMode) # calculate the particle positions of the next frame
+    # ParticleCreaterUtils.cloth1.ballCollision(ParticleCreaterUtils.ball_pos, ParticleCreaterUtils.ball_radius) # resolve collision with the ball
+    # ParticleCreaterUtils.cloth1.floorCollision(-5) # resolve collision with the ball
     
     # drawing
     ParticleCreaterUtils.cloth1.drawShaded() # finally draw the cloth with smooth shading
-    return 0.02
+    return timeStep
     
 def register():
     bpy.app.timers.register(in_1_seconds)
-
-

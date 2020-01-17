@@ -30,11 +30,11 @@ def leastsq(pts):
     answer = inverse.dot(bezMatTras.dot(ptMat))
     return answer
     
-size = 10
-array = [None] * size
+# size = 10
+# array = [None] * size
 
-for i in range(size):
-    array[i] = np.array([i,0,0])
-array[5][1] = 1 
-print(array)
-leastsq(array)
+# for i in range(size):
+    # array[i] = np.array([i,0,0])
+# array[5][1] = 1 
+# print(array)
+# leastsq(array)

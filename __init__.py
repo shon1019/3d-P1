@@ -1,23 +1,3 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
-# <pep8 compliant>
-
 bl_info = {
     "name": "landscapeDesigner",
     "author": "晟暘科技",
@@ -62,6 +42,26 @@ class P1(bpy.types.Panel):
         row = layout.row()
         row.operator("ldops.concat", text = "concat")
         row.operator("ldops.camertrack", text = "cameraTrack")
+# if mode == "Eular":
+        # # print("Eular")
+        # return
+    # elif mode == "RungeKutta2":
+        # # print("RungeKutta2")
+        # clothTmp.timeStep(timeStep / 2)
+        # clothNow.UpdateVelocityForOtherMethod(clothTmp, mode, time)
+    # elif mode == "Verlet":
+        # # print("Verlet")
+        # clothTmp.timeStep(timeStep / 2)
+        # clothNow.UpdateVelocityForOtherMethod(clothTmp, mode, time)
+    # elif mode == "Leapfrog":
+        # # print("Leapfrog")
+        # clothTmp.timeStep(timeStep)
+        # clothNow.UpdateVelocityForOtherMethod(clothTmp, mode, time)
+    # elif mode == "Symplectic":
+        # # print("Symplectic")
+        # clothTmp.timeStep(timeStep)
+        # clothNow.UpdateVelocityForOtherMethod(clothTmp, mode, time)
+
 
 # Main Operators
 class P2(bpy.types.Panel):
@@ -85,6 +85,8 @@ class P2(bpy.types.Panel):
         row = layout.row()
         row.operator("ldops.aaa", text = "comput")
         row = layout.row()
+        row.prop(pref, "timeStep", text = "Time Step") 
+        row = layout.row()
         row.prop(pref, "mass", text = "mass") 
         row = layout.row()
         row.prop(pref, "numX", text = "width")     
@@ -93,10 +95,11 @@ class P2(bpy.types.Panel):
         row.prop(pref, "gravity", text = "gravity") 
         row = layout.row()
         row.prop(pref, "windForce", text = "windForce") 
-        
-
-
-        
+        row = layout.row()
+        row.prop(pref, "integrateMode", text = "積分")
+        if pref.lastMode != pref.integrateMode:
+            hair_And_Cloth.resetCloth()
+            pref.lastMode = pref.integrateMode
 
 class aaa(bpy.types.Operator):
     """bvhReader"""
@@ -106,8 +109,8 @@ class aaa(bpy.types.Operator):
     def execute(self, context):
         pref = bpy.context.preferences.addons[__package__].preferences
         hair_And_Cloth.ParticleCreaterUtils.mesh = bpy.data.meshes.new("wave")
-        hair_And_Cloth.ParticleCreaterUtils.cloth = bpy.data.objects.new("wave", hair_And_Cloth.ParticleCreaterUtils.mesh)
         hair_And_Cloth.ParticleCreaterUtils.cloth1 = hair_And_Cloth.Cloth(14, 10, pref.numX, pref.numX) # one Cloth object of the Cloth class
+        hair_And_Cloth.ParticleCreaterUtils.cloth = bpy.data.objects.new("wave", hair_And_Cloth.ParticleCreaterUtils.mesh)
         bpy.context.collection.objects.link(hair_And_Cloth.ParticleCreaterUtils.cloth)
         bpy.ops.mesh.primitive_uv_sphere_add(radius = 1, location = hair_And_Cloth.ParticleCreaterUtils.ball_pos)
         
@@ -155,6 +158,7 @@ def register():
     bpy.utils.register_class(OT_draw_operator)
 
 def unregister():
+    del bpy.types.Scene.IntegrateMode
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
     bvhReader.unregister()
