@@ -47,25 +47,32 @@ class concat(bpy.types.Operator):
         obj.animation_data.nla_tracks.new()
         obj.animation_data.nla_tracks.new()
         #------------------------------------------------------------------
-        obj.animation_data.nla_tracks['NlaTrack'].strips.new("dance", 1.0, bpy.data.actions['dance1'])
-        obj.animation_data.nla_tracks['NlaTrack.001'].strips.new("dance", 1.0, bpy.data.actions['dance'])
+        
+        obj.animation_data.nla_tracks['NlaTrack'].strips.new("dance", 1.0, bpy.data.actions['dance'])
+        obj.animation_data.nla_tracks['NlaTrack.001'].strips.new("jumpkick", 140.0, bpy.data.actions['jumpkick'])
+        obj.animation_data.nla_tracks['NlaTrack.001'].strips['jumpkick'].use_auto_blend = True
         return {'FINISHED'}
 
 class cameraTrack(bpy.types.Operator):
-    bl_idname = "ldops.cameraTrack"
+    bl_idname = "ldops.camertrack"
     bl_label = "cameraTrack"
 
     def execute(self, context):
+        targetobj = context.object
+        print(targetobj.name)
         camera = bpy.data.objects['Camera']
 
         camera.select_set(True)
+        camera.location = (-23,72,61)
+        camera.rotation_euler = (1.094707727432251, 0.013121236115694046, -2.820988178253174)
         context.view_layer.objects.active = bvhUtils.curveOB
         bvhUtils.curveOB.select_set(True)
         bpy.ops.object.parent_set(type='FOLLOW') #follow path
 
-        targetobj = context.object
+        
         ttc = camera.constraints.new(type='TRACK_TO')
         ttc.target = targetobj
+        ttc.subtarget = 'Hips'
         ttc.track_axis = 'TRACK_NEGATIVE_Z'
         ttc.up_axis = 'UP_Y'
 
@@ -162,10 +169,10 @@ class bvhReader(bpy.types.Operator):
         for i in range(0, aniTime):
             
             sc.frame_set(i)
-            obj.pose.bones['Hips'].location[0] = 0
+            '''obj.pose.bones['Hips'].location[0] = 0
             obj.pose.bones['Hips'].location[1] = 0
             obj.pose.bones['Hips'].location[2] = 0
-            bvh.pose.bones['Hips'].keyframe_delete(data_path="location",frame = i)
+            bvh.pose.bones['Hips'].keyframe_delete(data_path="location",frame = i)'''
             
         
         bpy.ops.object.select_all(action='DESELECT')
@@ -177,6 +184,9 @@ class bvhReader(bpy.types.Operator):
 def register():
     bpy.utils.register_class(bvhReader)
     bpy.utils.register_class(recompute)
+    bpy.utils.register_class(concat)
+    bpy.utils.register_class(cameraTrack)
+
 
 def unregister():
     bpy.utils.unregister_class(bvhReader)
