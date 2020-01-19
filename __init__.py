@@ -85,9 +85,17 @@ class P2(bpy.types.Panel):
         row = layout.row()
         row.operator("ldops.aaa", text = "comput")
         row = layout.row()
+        row.operator("ldops.reset", text = "reset")
+        row = layout.row()
+        row.prop(pref, "frameRate", text = "Frame Rate")         
+        row = layout.row()
         row.prop(pref, "timeStep", text = "Time Step") 
         row = layout.row()
         row.prop(pref, "mass", text = "mass") 
+        row = layout.row()
+        row.prop(pref, "damping", text = "damping") 
+        row = layout.row()
+        row.prop(pref, "spring", text = "spring") 
         row = layout.row()
         row.prop(pref, "numX", text = "width")     
         row.prop(pref, "numY", text = "high") 
@@ -100,6 +108,13 @@ class P2(bpy.types.Panel):
         if pref.lastMode != pref.integrateMode:
             hair_And_Cloth.resetCloth()
             pref.lastMode = pref.integrateMode
+        
+class Reset(bpy.types.Operator):
+    bl_idname = "ldops.reset"
+    bl_label = "reset"
+    def execute(self, context):
+        hair_And_Cloth.resetCloth()
+        return {'FINISHED'}
 
 class aaa(bpy.types.Operator):
     """bvhReader"""
@@ -156,6 +171,7 @@ def register():
     bvhReader.register()
     preferences.register()
     bpy.utils.register_class(OT_draw_operator)
+    bpy.utils.register_class(Reset)
 
 def unregister():
     del bpy.types.Scene.IntegrateMode

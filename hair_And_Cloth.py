@@ -10,7 +10,7 @@ import math
 from bpy.types import Operator
 from mathutils import Vector
 
-DAMPING = 0.01  # how much to damp the cloth simulation each frame
+# DAMPING = 0.2  # how much to damp the cloth simulation each frame
 CONSTRAINT_ITERATIONS = 15 # how many iterations of constraint satisfaction each frame (more is rigid, less is soft)
 
 class ParticleCreaterUtils():
@@ -58,10 +58,13 @@ class Particle():
     simVelocity = Vector((0, 0, 0))
     simAcce = Vector((0, 0, 0))
     
+    oriPos = Vector((0, 0, 0))
+    
     def __init__(self, pos):
         self.pos = pos
         self.old_pos = pos
-
+        self.oriPos = pos
+        
     def addForce(self, f):
         pref = bpy.context.preferences.addons[__package__].preferences
         self.acceleration += f / pref.mass
@@ -78,34 +81,38 @@ class Particle():
                 self.simAcce = self.acceleration
             elif mode == "RungeKutta2":
                 # print("RungeKutta2")
-                self.simVelocity = self.velocity + self.simAcce / 2 * time
+                self.simVelocity = self.velocity + self.acceleration / 2 * time
                 self.simAcce = self.acceleration
             elif mode == "Verlet":
                 # print("Verlet")
                 pref = bpy.context.preferences.addons[__package__].preferences
                 self.simAcce = self.acceleration
-                self.simVelocity = self.velocity + self.simAcce * time
+                self.simVelocity = self.velocity + self.acceleration * time
                 self.simVelocity = self.velocity + (self.simVelocity + self.velocity) / (2 * pref.mass) * time
             elif mode == "Leapfrog":
                 # print("Leapfrog")
                 # tmp : need to use the acceleration of next frame
                 self.simAcce = self.acceleration
-                self.simVelocity = self.velocity + (self.simAcce + self.acceleration) / 2 * time
+                self.simVelocity = self.velocity + (self.acceleration + self.acceleration) / 2 * time
             elif mode == "Symplectic":
                 # print("Symplectic")
-                self.simVelocity = self.velocity + self.simAcce * time
+                self.simVelocity = self.velocity + self.acceleration * time
                 self.simAcce = self.acceleration
-                
+            # print(self.simAcce)
+            # print(self.simVelocity)
     def updatePos(self, time = 0.02, mode = "Eular"):
         if self.movable:
+            pref = bpy.context.preferences.addons[__package__].preferences
+            damping = pref.damping
             temp = self.pos
-            if mode == "Verlet":
-                self.pos = self.pos + (self.pos - self.old_pos) * (1.0 - DAMPING) + self.simVelocity * time + self.simAcce / 2 * time * time
+
+            if mode == "Leapfrog":
+                self.pos = self.pos + self.simVelocity * time + self.simAcce / 2 * time * time
             else:
-                self.pos = self.pos + (self.pos - self.old_pos) * (1.0 - DAMPING) + self.simVelocity * time
+                self.pos = self.pos + self.simVelocity * time
                 self.simVelocity = self.velocity + self.simAcce * time
             self.velocity = self.simVelocity
-            self.acceleration = self.simAcce
+            # self.acceleration = self.simAcce
             self.old_pos = temp
             self.acceleration = Vector((0, 0, 0))# acceleration is reset since it HAS been translated into a change in position(and implicitely into velocity)
     # Vec3 & getPos() {return pos;}
@@ -142,16 +149,26 @@ class Constraint():
         #rest_distance = vec.length();     }
         vec = self.p1.pos - self.p2.pos
         self.rest_distance = vec.length
-
+        # print(self.rest_distance)
     '''This is one of the important methods, where a single constraint between two particles p1 and p2 is solved
     the method is called by Cloth.time_step() many times per frame'''
     def satisfyConstraint(self):
+        #  + (self.pos - self.old_pos) * (1.0 - damping)
+        pref = bpy.context.preferences.addons[__package__].preferences
         p1_to_p2 = self.p2.pos - self.p1.pos # vector from p1 to p2
+        v1_to_v2 = self.p2.velocity - self.p1.velocity
+        # print(self.p2.velocity, self.p1.velocity)
+        ppNormalize = p1_to_p2.normalized()
+        # print(p1_to_p2, self.p2.pos, self.p1.pos)
         current_distance = p1_to_p2.length # current distance between p1 and p2
-        correctionVector = p1_to_p2 * (1 - self.rest_distance / current_distance) # The offset vector that could moves p1 into a distance of rest_distance to p2
-        correctionVectorHalf = correctionVector * 0.5 # Lets make it half that length, so that we can move BOTH p1 and p2.
-        self.p1.offsetPos(correctionVectorHalf) # correctionVectorHalf is pointing from p1 to p2, so the length should move p1 half the length needed to satisfy the constraint.
-        self.p2.offsetPos(-correctionVectorHalf) # we must move p2 the negative direction of correctionVectorHalf since it points from p2 to p1, and not p1 to p2.
+        # correctionVector = p1_to_p2 * (1 - self.rest_distance / current_distance)
+        springForce = (current_distance - self.rest_distance) * pref.spring
+        dampingForce = (p1_to_p2.dot(v1_to_v2) / current_distance) * pref.damping
+        finalForce = ppNormalize * (springForce + dampingForce) * 0.5
+        # self.p1.offsetPos(correctionVectorHalf)
+        # self.p2.offsetPos(-correctionVectorHalf)
+        self.p1.addForce(finalForce)
+        self.p2.addForce(-finalForce)
 
 class Cloth():
     resetFlag = False
@@ -299,6 +316,7 @@ class Cloth():
     # used to add wind forces to all particles, is added for each triangle since the final force is proportional 
     # to the triangle area as seen from the wind direction
     def windForce(self, direction):
+        # print(direction)
         for x in range(0, self.num_particles_width - 1):
             for y in range(0, self.num_particles_height - 1):
                 self.addWindForcesForTriangle(self.getParticle(x + 1, y), self.getParticle(x, y), self.getParticle(x, y + 1), direction)
@@ -321,45 +339,15 @@ class Cloth():
                 particle.offsetPos(Vector((0, (y - p[1])/10, 0))) # project the particle to the surface of the ball
     
     def Reset(self):
-        self.particles = []
-        self.constraints = []
-        # creating particles in a grid of particles from (0, 0, 0) to(width, -height, 0)
-        for y in range(0, self.num_particles_height):
-            for x in range(0, self.num_particles_width):
-                pos = Vector((self.width * (x / self.num_particles_width),
-                    -self.height * (y / self.num_particles_height), 0))
-                self.particles.append(Particle(pos)) # insert particle in column x at y'th row
-        # Connecting immediate neighbor particles with constraints(distance 1 and sqrt(2) in the grid)
-        for x in range (0, self.num_particles_width):
-            for y in range (0,self.num_particles_height):
-                if x < self.num_particles_width - 1:
-                    self.makeConstraint(self.getParticle(x, y), self.getParticle(x + 1, y))
-                if y < self.num_particles_height - 1:
-                    self.makeConstraint(self.getParticle(x, y), self.getParticle(x, y + 1))
-                if x < self.num_particles_width - 1 and y < self.num_particles_height - 1:
-                    self.makeConstraint(self.getParticle(x, y), self.getParticle(x + 1, y + 1))
-                if x < self.num_particles_width - 1 and y < self.num_particles_height - 1:
-                    self.makeConstraint(self.getParticle(x + 1, y), self.getParticle(x, y + 1))
-
-        # Connecting secondary neighbors with constraints(distance 2 and sqrt(4) in the grid)
-        for x in range (0, self.num_particles_width):
-            for y in range (0, self.num_particles_height):
-                if x < self.num_particles_width - 2: 
-                    self.makeConstraint(self.getParticle(x, y), self.getParticle(x + 2, y))
-                if y < self.num_particles_height - 2: 
-                    self.makeConstraint(self.getParticle(x, y), self.getParticle(x, y + 2))
-                if x < self.num_particles_width - 2 and y < self.num_particles_height - 2:
-                    self.makeConstraint(self.getParticle(x, y), self.getParticle(x + 2, y + 2))
-                if x < self.num_particles_width - 2 and y < self.num_particles_height - 2:
-                    self.makeConstraint(self.getParticle(x + 2, y), self.getParticle(x, y + 2))
-
-        # making the upper left most three and right most three particles unmovable
-        for i in range (0,4):
-            self.getParticle(0 + i, 0).offsetPos(Vector((0.5, 0.0, 0.0))) # moving the particle a bit towards the center, to make it hang more natural - because I like it;)
-            self.getParticle(0 + i, 0).makeUnmovable()
-            self.getParticle(0 + i, 0).offsetPos(Vector((-0.5, 0.0, 0.0))) # moving the particle a bit towards the center, to make it hang more natural - because I like it;)
-            self.getParticle(self.num_particles_width - 1 - i, 0).makeUnmovable()
-    
+        for particle in self.particles:
+            particle.pos = particle.oriPos
+            particle.old_pos = particle.oriPos
+            particle.velocity = Vector((0, 0, 0))
+            particle.acceleration = Vector((0, 0, 0))
+            particle.accumulated_normal = Vector((0, 0, 0))
+            particle.simVelocity = Vector((0, 0, 0))
+            particle.simAcce = Vector((0, 0, 0))
+            
 def resetCloth():
     if ParticleCreaterUtils.cloth1:
         ParticleCreaterUtils.cloth1.resetFlag = True
@@ -371,21 +359,23 @@ def resetCloth():
 def in_1_seconds():
     pref = bpy.context.preferences.addons[__package__].preferences
     timeStep = pref.timeStep
+    frameRate = 1 / pref.frameRate
+    
     if not ParticleCreaterUtils.cloth1:
-        return timeStep
+        return frameRate
     if ParticleCreaterUtils.cloth1.resetFlag == True:
         ParticleCreaterUtils.ball_time = 0
         ParticleCreaterUtils.cloth1.Reset()
         ParticleCreaterUtils.cloth1.drawShaded()
         ParticleCreaterUtils.cloth1.resetFlag = False
-        return timeStep
+        return frameRate
     # calculating positions
     ParticleCreaterUtils.ball_time += 1
     
     ParticleCreaterUtils.ball_pos[2] = math.cos(ParticleCreaterUtils.ball_time / 50.0) * 7
     ParticleCreaterUtils.ball.location = ParticleCreaterUtils.ball_pos
-    ParticleCreaterUtils.cloth1.addForce( Vector(pref.gravity) * timeStep * timeStep) # add gravity each frame, pointing down
-    ParticleCreaterUtils.cloth1.windForce( Vector(pref.windForce) * timeStep* timeStep); # generate some wind each frame
+    ParticleCreaterUtils.cloth1.addForce(Vector(pref.gravity)) # add gravity each frame, pointing down
+    ParticleCreaterUtils.cloth1.windForce(Vector(pref.windForce)); # generate some wind each frame
     #integrator method
     # getVelocityTime(timeStep, ParticleCreaterUtils.cloth1)
     #-----------------
@@ -395,7 +385,7 @@ def in_1_seconds():
     
     # drawing
     ParticleCreaterUtils.cloth1.drawShaded() # finally draw the cloth with smooth shading
-    return timeStep
+    return frameRate
     
 def register():
     bpy.app.timers.register(in_1_seconds)
